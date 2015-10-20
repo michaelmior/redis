@@ -634,6 +634,50 @@ void hgetCommand(redisClient *c) {
     addHashFieldToReply(c, o, c->argv[2]);
 }
 
+void hgetlistCommand(redisClient *c) {
+    robj *o, *h;
+    long llen;
+
+    if ((o = lookupKeyReadOrReply(c,c->argv[1],shared.emptymultibulk)) == NULL
+            || checkType(c,o,REDIS_LIST)) return;
+    llen = listTypeLength(o);
+
+    /* Return the result in form of a multi-bulk reply */
+    addReplyMultiBulkLen(c,llen);
+    if (o->encoding == REDIS_ENCODING_ZIPLIST) {
+        unsigned char *p = ziplistIndex(o->ptr,0);
+        unsigned char *vstr;
+        unsigned int vlen;
+        long long vlong;
+        robj *key;
+
+        while(llen--) {
+            ziplistGet(p,&vstr,&vlen,&vlong);
+            if (vstr) {
+                key = createObject(REDIS_STRING,sdsnewlen(vstr,vlen));
+                if ((h = lookupKeyReadOrReply(c,key,shared.nullbulk)) == NULL
+                    || checkType(c,h,REDIS_HASH)) return;
+
+                addHashFieldToReply(c, h, c->argv[2]);
+            } else {
+                redisPanic("List key is not a string!");
+            }
+            p = ziplistNext(o->ptr,p);
+        }
+    } else if (o->encoding == REDIS_ENCODING_LINKEDLIST) {
+        listNode *ln = listIndex(o->ptr,0);
+
+        while(llen--) {
+            if ((h = lookupKeyReadOrReply(c,ln->value,shared.nullbulk)) == NULL
+                || checkType(c,h,REDIS_HASH)) return;
+            addHashFieldToReply(c,h,c->argv[2]);
+            ln = ln->next;
+        }
+    } else {
+        redisPanic("List encoding is not LINKEDLIST nor ZIPLIST!");
+    }
+}
+
 void hmgetCommand(redisClient *c) {
     robj *o;
     int i;

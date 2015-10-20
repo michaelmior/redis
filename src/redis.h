@@ -1304,6 +1304,7 @@ void zrevrankCommand(redisClient *c);
 void hsetCommand(redisClient *c);
 void hsetnxCommand(redisClient *c);
 void hgetCommand(redisClient *c);
+void hgetlistCommand(redisClient *c);
 void hmsetCommand(redisClient *c);
 void hmgetCommand(redisClient *c);
 void hdelCommand(redisClient *c);
